@@ -18,6 +18,11 @@ permissions:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+    env:
+      # allowed_origins has no default (required). Supplied from a repo Actions
+      # variable so CI apply/plan don't prompt. Set ALLOWED_ORIGINS to a JSON
+      # list, e.g. ["https://your-app.vercel.app"]. TF_VAR_ feeds Terraform directly.
+      TF_VAR_allowed_origins: ${{ vars.ALLOWED_ORIGINS }}
     defaults:
       run:
         working-directory: terraform/environments/mirra
@@ -26,7 +31,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.8
+          terraform_version: 1.10.5
 
       - name: Format check
         run: terraform fmt -check -recursive

@@ -30,6 +30,11 @@ terraform output infra_deploy_role_arn      # -> this repo (ED-Tech1/Mirra-infra
 Set those as GitHub Actions repository secrets in each repo. Commit `backend.hcl`
 (it holds only the bucket/table names, no secrets) so the infra CI can init.
 
+Also set a GitHub Actions **variable** `ALLOWED_ORIGINS` on this infra repo to a JSON
+list of the Vercel origins, e.g. `["https://your-app.vercel.app"]`. The infra
+`terraform.yml` workflow feeds it to Terraform as `TF_VAR_allowed_origins` (the
+`allowed_origins` variable has no default, so CI apply needs it).
+
 ## 4. Hand the frontend team their Vercel env
 
 ```bash
