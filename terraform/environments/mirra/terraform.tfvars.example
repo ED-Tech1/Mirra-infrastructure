@@ -1,4 +1,4 @@
 # Copy to terraform.tfvars (gitignored) and fill in real values.
 allowed_origins = ["https://mirra-frontend.vercel.app"]
-backend_repo    = "ED-Tech1/mirra-backend"
+backend_repo    = "ED-Tech1/Mira-repo"
 infra_repo      = "ED-Tech1/Mirra-infrastructure"

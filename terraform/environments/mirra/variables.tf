@@ -50,8 +50,8 @@ variable "app_name" {
 
 variable "backend_repo" {
   type        = string
-  description = "GitHub owner/repo of mirra-backend, for OIDC sub scoping."
-  default     = "ED-Tech1/mirra-backend"
+  description = "GitHub owner/repo of the backend repo, for OIDC sub scoping."
+  default     = "ED-Tech1/Mira-repo"
 }
 
 variable "infra_repo" {
