@@ -1,0 +1,50 @@
+name: Backend CI (reusable)
+
+# Reusable workflow callable from the mirra-backend repo.
+# Runs lint, type-check, and tests against a PostgreSQL service.
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mirra
+          POSTGRES_PASSWORD: mirra
+          POSTGRES_DB: mirra_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://mirra:mirra@localhost:5432/mirra_test
+      SECRET_KEY: ci-test-secret-do-not-use-in-production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Set up Python
+        run: uv python install ${{ inputs.python-version }}
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Type check
+        run: uv run mypy app
+      - name: Migrate test database
+        run: uv run alembic upgrade head
+      - name: Tests
+        run: uv run pytest --cov=app --cov-report=term-missing

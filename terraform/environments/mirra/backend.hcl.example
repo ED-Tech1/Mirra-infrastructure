@@ -1,0 +1,5 @@
+bucket         = "mirra-tfstate-<AWS_ACCOUNT_ID>"
+key            = "mirra/terraform.tfstate"
+region         = "eu-north-1"
+dynamodb_table = "mirra-tflocks"
+encrypt        = true
