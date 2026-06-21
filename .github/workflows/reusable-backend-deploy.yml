@@ -54,6 +54,10 @@ jobs:
             --filters "Name=tag:Name,Values=${{ inputs.instance-name-tag }}" \
                       "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].InstanceId" --output text)
+          if [[ "$ID" == "None" || -z "$ID" ]]; then
+            echo "ERROR: no running instance with tag ${{ inputs.instance-name-tag }}"
+            exit 1
+          fi
           echo "id=$ID" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-python@v5
@@ -76,6 +80,7 @@ jobs:
           HOSTPORT=$(echo "$DB_URL" | sed -E 's#.*@([^/]+)/.*#\1#')
           RDS_HOST="${HOSTPORT%%:*}"
           RDS_PORT="${HOSTPORT##*:}"
+          [[ "$RDS_PORT" == "$RDS_HOST" ]] && RDS_PORT="5432"
 
           aws ssm start-session \
             --target "$INSTANCE_ID" \
@@ -99,4 +104,6 @@ jobs:
             --parameters 'commands=["systemctl restart mirra-backend.service"]' \
             --query "Command.CommandId" --output text)
           aws ssm wait command-executed --command-id "$CMD" --instance-id "$INSTANCE_ID" || true
-          aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCE_ID"
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCE_ID" --query Status --output text)
+          echo "Restart command status: $STATUS"
+          [[ "$STATUS" == "Success" ]] || { echo "Service restart failed: $STATUS"; exit 1; }
