@@ -69,3 +69,10 @@ mirra-infra/
 
 - The cloud provider has not been finalised. Modules in `terraform/modules/` currently contain placeholders and structural conventions; provider-specific resources will be filled in once the cloud is chosen.
 - All documents shared with the client (scope, design brief, delivery assessment) live under `docs/`.
+
+## AWS deployment
+
+This repo deploys the backend to AWS (eu-north-1) via Terraform. See
+`docs/runbooks/aws-deploy.md` for the one-time bootstrap and first apply, and
+`docs/superpowers/specs/2026-06-21-aws-backend-deployment-design.md` for the design.
+The frontend is deployed separately on Vercel.
