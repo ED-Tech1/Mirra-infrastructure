@@ -1,19 +1,11 @@
-output "network_id" {
-  description = "ID of the created virtual network"
-  value       = null # to be set once provider resources are added
+output "vpc_id" {
+  value = aws_vpc.this.id
 }
 
 output "public_subnet_ids" {
-  description = "IDs of the public subnets"
-  value       = []
+  value = aws_subnet.public[*].id
 }
 
 output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = []
-}
-
-output "default_security_group_id" {
-  description = "ID of the default security group"
-  value       = null
+  value = aws_subnet.private[*].id
 }
