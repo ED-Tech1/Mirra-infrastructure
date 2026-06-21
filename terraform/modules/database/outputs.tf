@@ -1,20 +1,8 @@
-output "host" {
-  description = "Database host"
-  value       = null
+output "endpoint" {
+  description = "Connection endpoint in host:port form."
+  value       = aws_db_instance.this.endpoint
 }
 
-output "port" {
-  description = "Database port"
-  value       = 5432
-}
-
-output "database_name" {
-  description = "Default database name"
-  value       = null
-}
-
-output "secret_id" {
-  description = "Reference to the database credentials in the secret manager"
-  value       = null
-  sensitive   = true
+output "db_security_group_id" {
+  value = aws_security_group.db.id
 }

@@ -1,43 +1,50 @@
-variable "environment" {
-  type        = string
-  description = "Environment name (dev, prod)"
-}
-
 variable "project" {
-  type        = string
-  description = "Project identifier"
+  type = string
 }
 
-variable "network_id" {
+variable "environment" {
+  type = string
+}
+
+variable "vpc_id" {
+  type = string
+}
+
+variable "private_subnet_ids" {
+  type = list(string)
+}
+
+variable "app_security_group_id" {
   type        = string
-  description = "ID of the network the database should attach to"
+  description = "Security group of the app instance permitted to reach Postgres."
 }
 
 variable "instance_class" {
-  type        = string
-  description = "Database instance size (provider-specific identifier)"
-}
-
-variable "allocated_storage_gb" {
-  type        = number
-  description = "Initial allocated storage in GB"
-  default     = 20
+  type    = string
+  default = "db.t3.micro"
 }
 
 variable "engine_version" {
-  type        = string
-  description = "PostgreSQL major.minor version"
-  default     = "16.4"
+  type    = string
+  default = "16"
 }
 
-variable "multi_az" {
-  type        = bool
-  description = "Enable multi-AZ deployment (prod) or single-AZ (dev)"
-  default     = false
+variable "allocated_storage" {
+  type    = number
+  default = 20
 }
 
-variable "backup_retention_days" {
-  type        = number
-  description = "Number of days to retain automated backups"
-  default     = 7
+variable "db_name" {
+  type    = string
+  default = "mirra"
+}
+
+variable "db_username" {
+  type    = string
+  default = "mirra"
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
 }
