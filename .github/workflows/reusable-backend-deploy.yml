@@ -1,0 +1,102 @@
+name: reusable-backend-deploy
+
+on:
+  workflow_call:
+    inputs:
+      aws-region:
+        type: string
+        default: eu-north-1
+      ecr-repository:
+        type: string
+        default: mirra-backend
+      instance-name-tag:
+        type: string
+        default: mirra-mirra-api
+      rds-secret-id:
+        type: string
+        default: mirra/mirra/DATABASE_URL
+    secrets:
+      deploy-role-arn:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.deploy-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPO: ${{ inputs.ecr-repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          docker build -t "$REGISTRY/$REPO:$SHA" -t "$REGISTRY/$REPO:latest" .
+          docker push "$REGISTRY/$REPO:$SHA"
+          docker push "$REGISTRY/$REPO:latest"
+
+      - name: Resolve instance id
+        id: ec2
+        run: |
+          ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=${{ inputs.instance-name-tag }}" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" --output text)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install Session Manager plugin
+        run: |
+          curl -s "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o smp.deb
+          sudo dpkg -i smp.deb
+
+      - name: Run migrations over SSM tunnel
+        env:
+          INSTANCE_ID: ${{ steps.ec2.outputs.id }}
+          RDS_SECRET: ${{ inputs.rds-secret-id }}
+        run: |
+          DB_URL=$(aws secretsmanager get-secret-value --secret-id "$RDS_SECRET" --query SecretString --output text)
+          HOSTPORT=$(echo "$DB_URL" | sed -E 's#.*@([^/]+)/.*#\1#')
+          RDS_HOST="${HOSTPORT%%:*}"
+          RDS_PORT="${HOSTPORT##*:}"
+
+          aws ssm start-session \
+            --target "$INSTANCE_ID" \
+            --document-name AWS-StartPortForwardingSessionToRemoteHost \
+            --parameters "{\"host\":[\"$RDS_HOST\"],\"portNumber\":[\"$RDS_PORT\"],\"localPortNumber\":[\"5432\"]}" &
+          SSM_PID=$!
+          sleep 10
+
+          LOCAL_DB_URL=$(echo "$DB_URL" | sed -E "s#@[^/]+/#@localhost:5432/#")
+          DATABASE_URL="$LOCAL_DB_URL" uv run alembic upgrade head
+
+          kill "$SSM_PID" 2>/dev/null || true
+
+      - name: Restart backend service
+        env:
+          INSTANCE_ID: ${{ steps.ec2.outputs.id }}
+        run: |
+          CMD=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["systemctl restart mirra-backend.service"]' \
+            --query "Command.CommandId" --output text)
+          aws ssm wait command-executed --command-id "$CMD" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation --command-id "$CMD" --instance-id "$INSTANCE_ID"
