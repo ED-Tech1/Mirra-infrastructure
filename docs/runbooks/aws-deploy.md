@@ -23,8 +23,8 @@ terraform apply
 ## 3. Wire CI secrets (from terraform outputs)
 
 ```bash
-terraform output backend_deploy_role_arn   # -> mirra-backend repo secret AWS_DEPLOY_ROLE_ARN
-terraform output infra_deploy_role_arn      # -> this repo secret TF_INFRA_ROLE_ARN
+terraform output backend_deploy_role_arn   # -> backend repo (ED-Tech1/Mira-repo) secret AWS_DEPLOY_ROLE_ARN
+terraform output infra_deploy_role_arn      # -> this repo (ED-Tech1/Mirra-infrastructure) secret TF_INFRA_ROLE_ARN
 ```
 
 Set those as GitHub Actions repository secrets in each repo. Commit `backend.hcl`
@@ -43,9 +43,10 @@ in `terraform.tfvars` and re-apply so backend CORS accepts them.
 
 ## 5. Trigger the first backend deploy
 
-Push to `mirra-backend` `main` (or re-run its `deploy` workflow). It builds the
-image, runs `alembic upgrade head` over the SSM tunnel, and starts the container.
-Verify: `curl https://<dist>.cloudfront.net/health`.
+Only after steps 2–3 (apply done, `AWS_DEPLOY_ROLE_ARN` secret set on the backend
+repo): push the backend repo (`ED-Tech1/Mira-repo`) `main`, or re-run its `deploy`
+workflow. It builds the image, runs `alembic upgrade head` over the SSM tunnel, and
+starts the container. Verify: `curl https://<dist>.cloudfront.net/health`.
 
 > Note: between `terraform apply` and the first successful backend deploy, the
 > EC2 container does not exist yet, so the CloudFront URL returns 5xx/connection
