@@ -74,7 +74,11 @@ resource "aws_iam_role_policy" "backend_deploy" {
           "ssm:SendCommand",
           "ssm:GetCommandInvocation",
           "ssm:DescribeInstanceInformation",
-          "ec2:DescribeInstances"
+          "ec2:DescribeInstances",
+          "ssmmessages:CreateControlChannel",
+          "ssmmessages:CreateDataChannel",
+          "ssmmessages:OpenControlChannel",
+          "ssmmessages:OpenDataChannel"
         ]
         Resource = "*"
       }

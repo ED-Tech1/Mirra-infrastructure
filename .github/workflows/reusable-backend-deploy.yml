@@ -87,12 +87,22 @@ jobs:
             --document-name AWS-StartPortForwardingSessionToRemoteHost \
             --parameters "{\"host\":[\"$RDS_HOST\"],\"portNumber\":[\"$RDS_PORT\"],\"localPortNumber\":[\"5432\"]}" &
           SSM_PID=$!
-          sleep 10
+          trap 'kill "$SSM_PID" 2>/dev/null || true' EXIT
+
+          # Wait (up to 30s) for the tunnel to accept connections; fail fast if the session died.
+          for i in $(seq 1 30); do
+            if ! kill -0 "$SSM_PID" 2>/dev/null; then
+              echo "ERROR: SSM port-forward session exited before the tunnel came up"; exit 1
+            fi
+            if (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null; then
+              exec 3>&- 3<&-; echo "tunnel up after ${i}s"; break
+            fi
+            if [[ "$i" -eq 30 ]]; then echo "ERROR: tunnel did not come up within 30s"; exit 1; fi
+            sleep 1
+          done
 
           LOCAL_DB_URL=$(echo "$DB_URL" | sed -E "s#@[^/]+/#@localhost:5432/#")
           DATABASE_URL="$LOCAL_DB_URL" uv run alembic upgrade head
-
-          kill "$SSM_PID" 2>/dev/null || true
 
       - name: Restart backend service
         env:

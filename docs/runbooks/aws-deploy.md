@@ -46,3 +46,8 @@ in `terraform.tfvars` and re-apply so backend CORS accepts them.
 Push to `mirra-backend` `main` (or re-run its `deploy` workflow). It builds the
 image, runs `alembic upgrade head` over the SSM tunnel, and starts the container.
 Verify: `curl https://<dist>.cloudfront.net/health`.
+
+> Note: between `terraform apply` and the first successful backend deploy, the
+> EC2 container does not exist yet, so the CloudFront URL returns 5xx/connection
+> errors. This is expected — the first `deploy` workflow run is what starts the
+> service. Don't treat health-check failures in that window as breakage.
