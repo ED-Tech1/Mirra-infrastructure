@@ -1,0 +1,67 @@
+#!/bin/bash
+set -euo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable --now docker
+
+mkdir -p /etc/mirra /opt/mirra
+
+cat > /etc/mirra/deploy.env <<EOF
+AWS_REGION=${region}
+ECR_REPOSITORY_URL=${ecr_repository_url}
+SECRET_KEY_ARN=${secret_key_arn}
+DATABASE_URL_ARN=${database_url_arn}
+ALLOWED_ORIGINS_ARN=${allowed_origins_arn}
+EOF
+
+cat > /opt/mirra/deploy.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+source /etc/mirra/deploy.env
+
+aws ecr get-login-password --region "$AWS_REGION" \
+  | docker login --username AWS --password-stdin "$${ECR_REPOSITORY_URL%/*}"
+
+docker pull "$ECR_REPOSITORY_URL:latest"
+
+SECRET_KEY=$(aws secretsmanager get-secret-value --region "$AWS_REGION" --secret-id "$SECRET_KEY_ARN" --query SecretString --output text)
+DATABASE_URL=$(aws secretsmanager get-secret-value --region "$AWS_REGION" --secret-id "$DATABASE_URL_ARN" --query SecretString --output text)
+ALLOWED_ORIGINS=$(aws secretsmanager get-secret-value --region "$AWS_REGION" --secret-id "$ALLOWED_ORIGINS_ARN" --query SecretString --output text)
+
+cat > /etc/mirra/backend.env <<ENVEOF
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+SECRET_KEY=$SECRET_KEY
+DATABASE_URL=$DATABASE_URL
+ALLOWED_ORIGINS=$ALLOWED_ORIGINS
+ENVEOF
+chmod 600 /etc/mirra/backend.env
+
+docker rm -f mirra-backend 2>/dev/null || true
+docker run -d --name mirra-backend --restart unless-stopped \
+  --env-file /etc/mirra/backend.env \
+  -p 80:8000 \
+  "$ECR_REPOSITORY_URL:latest"
+SCRIPT
+chmod +x /opt/mirra/deploy.sh
+
+cat > /etc/systemd/system/mirra-backend.service <<'UNIT'
+[Unit]
+Description=Mirra backend (pull latest image and run)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/mirra/deploy.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable mirra-backend.service
+# Best-effort on first boot: the image won't exist until the first CI deploy.
+systemctl start mirra-backend.service || true
