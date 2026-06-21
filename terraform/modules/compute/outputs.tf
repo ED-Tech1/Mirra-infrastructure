@@ -4,7 +4,7 @@ output "instance_id" {
 
 output "instance_public_dns" {
   description = "Stable public DNS of the Elastic IP; used as the CloudFront origin."
-  value       = aws_eip.this.public_dns
+  value       = "ec2-${replace(aws_eip.this.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
 }
 
 output "security_group_id" {
