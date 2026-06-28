@@ -3,8 +3,13 @@ data "aws_ami" "al2023" {
   owners      = ["amazon"]
 
   filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    name = "name"
+    # Standard AL2023 only. The bare "al2023-ami-*" glob also matched the
+    # "minimal" variant (which ships NO SSM agent) and the "ecs" variant; with
+    # most_recent, a newly published minimal AMI won the lookup and replaced the
+    # instance with one the deploy/migration SSM tunnel can never reach. The
+    # standard variant's name begins "al2023-ami-2023.<version>".
+    values = ["al2023-ami-2023.*-x86_64"]
   }
 
   filter {
